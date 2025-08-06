@@ -14,9 +14,6 @@ from flask import (
 from openai import OpenAI
 from llm_providers import get_available_providers, get_provider
 
-# ------------------------------------------------------------------
-# 1.  Flask app setup
-# ------------------------------------------------------------------
 app = Flask(__name__)
 app.secret_key = os.urandom(24)  # <-- change for production
 
@@ -26,9 +23,7 @@ load_dotenv()
 # OpenAI setup for image generation
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-# ------------------------------------------------------------------
-# 2.  Master prompts
-# ------------------------------------------------------------------
+# Master prompts
 MASTER_PROMPT = """
 You are a friendly storyteller, writing a bedtime story for a child.
 The story should be gentle, positive, and suitable for bedtime.
@@ -49,9 +44,7 @@ Do not include any children in the picture, but instead focus on characters and 
 Story:
 """
 
-# ------------------------------------------------------------------
-# 3.  Helper functions
-# ------------------------------------------------------------------
+# Helper functions
 def generate_story(provider_name: str, prompt: str) -> str:
     """
     Generate a story using the specified LLM provider.
@@ -86,9 +79,7 @@ def generate_image_with_openai(prompt: str) -> str:
         print(f"Error generating image: {e}")
         return None
 
-# ------------------------------------------------------------------
-# 4.  Routes
-# ------------------------------------------------------------------
+# Routes
 @app.route("/", methods=["GET"])
 def index():
     available_providers = get_available_providers()
@@ -175,8 +166,6 @@ def check_image():
     else:
         return jsonify({"status": "generating"})
 
-# ------------------------------------------------------------------
-# 5.  Run
-# ------------------------------------------------------------------
+# Run the app
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=1337, debug=True)
