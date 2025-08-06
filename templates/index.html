@@ -1,0 +1,48 @@
+{% extends "base.html" %} {% block title %}Home – Bedtime Story{% endblock %} {%
+block content %}
+<form action="{{ url_for('start') }}" method="post">
+    <label for="names"
+        >Your name and the names of characters you would like in the
+        story</label
+    >
+    <input
+        type="text"
+        id="names"
+        name="names"
+        placeholder="e.g. Alice, Bob, Charlie"
+        required
+    />
+
+    <label for="things">What are a few of your favourite things?</label>
+    <input
+        type="text"
+        id="things"
+        name="things"
+        placeholder="e.g. dinosaurs, cupcakes, rainbows"
+        required
+    />
+
+    <label for="topic">What would you like the story to be about?</label>
+    <input
+        type="text"
+        id="topic"
+        name="topic"
+        placeholder="e.g. a space adventure"
+        required
+    />
+
+    <label for="llm_provider">Choose your storyteller</label>
+    <select id="llm_provider" name="llm_provider" required>
+        {% for key, provider in available_providers.items() %}
+        <option value="{{ key }}">{{ provider.display_name }}</option>
+        {% endfor %}
+    </select>
+
+    <label for="generate_image">
+        <input type="checkbox" id="generate_image" name="generate_image" />
+        Generate a magical picture for the story
+    </label>
+
+    <button type="submit">Generate story</button>
+</form>
+{% endblock %}

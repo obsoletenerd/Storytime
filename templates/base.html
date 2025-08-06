@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <title>{% block title %}Bedtime Story{% endblock %}</title>
+        <!-- Pico‑CSS (light theme) -->
+        <link
+            rel="stylesheet"
+            href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css"
+        />
+        <style>
+            body {
+                max-width: 800px;
+                margin: auto;
+                padding: 2rem;
+            }
+        </style>
+    </head>
+    <body>
+        <header>
+            <hgroup>
+                <h1>Bedtime Story Generator</h1>
+                <h2>Give your child a magical story!</h2>
+            </hgroup>
+        </header>
+
+        {% block content %}{% endblock %}
+
+        <footer>
+            <p>
+                © 2025 Bedtime Stories –
+                <a href="https://github.com/yourname">GitHub</a>
+            </p>
+        </footer>
+    </body>
+</html>
