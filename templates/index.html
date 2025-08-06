@@ -1,10 +1,7 @@
 {% extends "base.html" %} {% block title %}Home – Bedtime Story{% endblock %} {%
 block content %}
 <form action="{{ url_for('start') }}" method="post">
-    <label for="names"
-        >Your name and the names of characters you would like in the
-        story</label
-    >
+    <label for="names">Names of the characters in this adventure?</label>
     <input
         type="text"
         id="names"
@@ -22,7 +19,7 @@ block content %}
         required
     />
 
-    <label for="topic">What would you like the story to be about?</label>
+    <label for="topic">What would you like this story to be about?</label>
     <input
         type="text"
         id="topic"
