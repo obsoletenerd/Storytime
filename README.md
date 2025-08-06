@@ -11,4 +11,6 @@ Also optionally generates images using OpenAI image generation, then inserts the
 ![Storytime Screenshot](https://github.com/obsoletenerd/Storytime/blob/main/StorytimeScreenshot.png?raw=true)
 
 ## TODO
-- [ ] Check which API keys are present, and if Ollama is running, then only show valid options for LLM choice in pulldown
+- [x] Check which API keys are present, and if Ollama is running, then only show valid options for LLM choice in pulldown
+- [ ] Fix the templates to work better on mobile
+- [ ] Try and find a small model that works well enough on an RPi just for the text generation for better privacy when run off the Pi
