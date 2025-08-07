@@ -46,3 +46,7 @@ footer p {
 footer p:hover {
     opacity: 1;
 }
+
+input::placeholder {
+    color: #5d6b89;
+}

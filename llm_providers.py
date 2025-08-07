@@ -50,7 +50,7 @@ class OllamaProvider(LLMProvider):
 
     @property
     def display_name(self) -> str:
-        return "Local LLM (Ollama)"
+        return "Ollama (Local LLMs)"
 
     @property
     def is_available(self) -> bool:
@@ -156,7 +156,7 @@ class MistralProvider(LLMProvider):
 
     @property
     def display_name(self) -> str:
-        return "Mistral AI"
+        return "Mistral (Le Chat)"
 
     @property
     def is_available(self) -> bool:

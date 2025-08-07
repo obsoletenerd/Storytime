@@ -4,6 +4,9 @@
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
 
+        <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}" />
+        <link rel="apple-touch-icon" href="{{ url_for('static', filename='apple-touch-icon.png') }}" />
+
         <title>{% block title %}Bedtime Story{% endblock %}</title>
         <link rel="stylesheet" href="{{ url_for('static', filename='nano.css') }}" />
         <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
