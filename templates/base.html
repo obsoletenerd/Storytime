@@ -3,18 +3,8 @@
     <head>
         <meta charset="UTF-8" />
         <title>{% block title %}Bedtime Story{% endblock %}</title>
-        <!-- Pico‑CSS (light theme) -->
-        <link
-            rel="stylesheet"
-            href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css"
-        />
-        <style>
-            body {
-                max-width: 800px;
-                margin: auto;
-                padding: 2rem;
-            }
-        </style>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css" />
+        <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
     </head>
     <body>
         <header>
@@ -29,9 +19,7 @@
         <footer>
             <p>
                 © 2025 ObsoleteNerd –
-                <a href="https://github.com/obsoletenerd/Storytime"
-                    >Source Code</a
-                >
+                <a href="https://github.com/obsoletenerd/Storytime">Source Code</a>
             </p>
         </footer>
     </body>

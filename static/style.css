@@ -1,0 +1,25 @@
+@font-face {
+    font-family: Writing;
+    src: url(/static/fonts/Englebert-Regular.ttf);
+}
+
+body {
+    max-width: 800px;
+    margin: auto;
+    padding: 2rem;
+}
+body,
+h1,
+h2,
+h3 {
+    font-family: Writing;
+}
+h1 {
+    font-size: 2rem;
+}
+h2 {
+    font-size: 1.75rem;
+}
+h3 {
+    font-size: 1.5rem;
+}

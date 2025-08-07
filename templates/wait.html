@@ -1,18 +1,15 @@
-{% extends "base.html" %}
-{% block title %}Please wait…{% endblock %}
-{% block content %}
+{% extends "base.html" %} {% block title %}Please wait…{% endblock %} {% block content %}
 <p id="status">Please wait while we create your bedtime story…</p>
 <script>
     // Call /generate as soon as the page loads
-    fetch('{{ url_for("generate") }}', { method: 'POST' })
-        .then(resp => resp.json())
-        .then(data => {
+    fetch('{{ url_for("generate") }}', { method: "POST" })
+        .then((resp) => resp.json())
+        .then((data) => {
             // Once the LLM is done, redirect to the result page
             window.location.href = '{{ url_for("result") }}';
         })
-        .catch(err => {
-            document.getElementById('status').textContent =
-                'Error: ' + err;
+        .catch((err) => {
+            document.getElementById("status").textContent = "Error: " + err;
         });
 </script>
 {% endblock %}
