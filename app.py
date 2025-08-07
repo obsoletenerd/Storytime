@@ -71,7 +71,7 @@ IMAGE_SUMMARY_PROMPT = """
 Based on the following story, create a brief description for an image that would be perfect to accompany this story.
 The image should be child-friendly and capture the main scene or feeling of the story.
 Keep the description under 200 characters and focus on visual elements that would delight a 6-12 year old (not toddler).
-Do not include any text or words in the image description.
+Do not include any text or words in the image.
 Do not include any children in the picture, but instead focus on characters and elements of the story so they can imagine themselves in it.
 
 Story:
