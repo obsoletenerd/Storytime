@@ -14,3 +14,5 @@ Also optionally generates images using OpenAI image generation, then inserts the
 - [x] Check which API keys are present, and if Ollama is running, then only show valid options for LLM choice in pulldown
 - [ ] Fix the templates to work better on mobile
 - [ ] Try and find a small model that works well enough on an RPi just for the text generation for better privacy when run off the Pi
+- [ ] Ability to save stories (internally and externally)
+- [ ] Use saved stories as context for more chapters
