@@ -1,13 +1,13 @@
 {% extends "base.html" %} {% block title %}Home – Bedtime Story{% endblock %} {% block content %}
 <form action="{{ url_for('start') }}" method="post">
     <label for="names">Names of the characters in this adventure?</label>
-    <input type="text" id="names" name="names" placeholder="e.g. Alice, Bob, Charlie" required />
+    <input type="text" id="names" name="names" placeholder="e.g. Lucy (7yr old girl), Rexxy (brown stuffed dog)" required />
 
     <label for="things">What are a few of your favourite things?</label>
-    <input type="text" id="things" name="things" placeholder="e.g. dinosaurs, cupcakes, rainbows" required />
+    <input type="text" id="things" name="things" placeholder="e.g. Dinosaurs, Capybaras, Space" required />
 
     <label for="topic">What would you like this story to be about?</label>
-    <input type="text" id="topic" name="topic" placeholder="e.g. a space adventure" required />
+    <input type="text" id="topic" name="topic" placeholder="e.g. An adventure to an alien planet" required />
 
     <label for="llm_provider">Choose your storyteller</label>
     <select id="llm_provider" name="llm_provider" required>
