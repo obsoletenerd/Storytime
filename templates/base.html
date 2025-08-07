@@ -2,15 +2,17 @@
 <html lang="en">
     <head>
         <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+
         <title>{% block title %}Bedtime Story{% endblock %}</title>
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css" />
+        <link rel="stylesheet" href="{{ url_for('static', filename='nano.css') }}" />
         <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
     </head>
     <body>
         <header>
             <hgroup>
-                <h1>📚 S T O R Y T I M E</h1>
-                <h2>Create your own bedtime stories</h2>
+                <h1>📚 S T O R Y T I M E !</h1>
+                <em>Create your own custom bedtime stories</em>
             </hgroup>
         </header>
 

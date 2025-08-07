@@ -3,6 +3,31 @@
     src: url(/static/fonts/Englebert-Regular.ttf);
 }
 
+@media (max-width: 768px) {
+    html {
+        font-size: 18px; /* Larger base font size on mobile */
+    }
+
+    body {
+        line-height: 1.6;
+    }
+
+    /* Make form elements more touch-friendly */
+    input,
+    select,
+    textarea,
+    button {
+        min-height: 44px;
+        font-size: 16px; /* Prevents zoom on iOS */
+    }
+
+    /* Better spacing */
+    article {
+        padding: 1rem;
+        margin: 0.5rem;
+    }
+}
+
 body {
     max-width: 800px;
     margin: auto;
@@ -14,12 +39,10 @@ h2,
 h3 {
     font-family: Writing;
 }
-h1 {
-    font-size: 2rem;
+
+footer p {
+    opacity: 0.25;
 }
-h2 {
-    font-size: 1.75rem;
-}
-h3 {
-    font-size: 1.5rem;
+footer p:hover {
+    opacity: 1;
 }
