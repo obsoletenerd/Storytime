@@ -83,7 +83,9 @@ def generate_image_with_openai(prompt: str) -> str:
 @app.route("/", methods=["GET"])
 def index():
     available_providers = get_available_providers()
+    print(available_providers)
     return render_template("index.html", available_providers=available_providers)
+
 
 @app.route("/start", methods=["POST"])
 def start():

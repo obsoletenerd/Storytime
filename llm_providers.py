@@ -27,9 +27,9 @@ class LLMProvider(ABC):
         pass
 
 class OllamaProvider(LLMProvider):
-    def __init__(self, host="http://localhost:11434", model="mistral:latest"):
-        self.host = host
-        self.model = model
+    def __init__(self):
+        self.host = os.getenv("OLLAMA_HOST")
+        self.model = os.getenv("OLLAMA_MODEL")
 
     def generate_text(self, prompt: str) -> str:
         payload = {
@@ -172,10 +172,12 @@ LLM_PROVIDERS = {
 
 def get_available_providers():
     """Return a dict of providers that are properly configured"""
-    return {
-        key: provider for key, provider in LLM_PROVIDERS.items()
-        if provider.is_available
-    }
+    available_providers = {key: provider for key, provider in LLM_PROVIDERS.items() if provider.is_available}
+    if os.getenv("OLLAMA_HOST"):
+        if os.getenv("OLLAMA_MODEL"):
+            available_providers["ollama"] = OllamaProvider()
+    return available_providers
+
 
 def get_provider(provider_name: str) -> LLMProvider:
     """Get a specific provider by name"""
@@ -184,6 +186,6 @@ def get_provider(provider_name: str) -> LLMProvider:
 
     provider = LLM_PROVIDERS[provider_name]
     if not provider.is_available:
-        raise ValueError(f"Provider '{provider_name}' is not properly configured")
+        raise ValueError(f"Provider '{provider_name}' is offline or not properly configured")
 
     return provider
