@@ -1,6 +1,8 @@
 import os
 import time
 import requests
+from datetime import datetime
+import re
 from dotenv import load_dotenv
 from flask import (
     Flask,
@@ -77,6 +79,19 @@ Do not include any children in the picture, but instead focus on characters and 
 Story:
 """
 
+TITLE_EXTRACTION_PROMPT = """
+Based on the following bedtime story, create a short, catchy title that captures the essence of the story.
+The title should be:
+- 3-8 words long
+- Child-friendly and engaging
+- Capture the main adventure or theme
+- Suitable for a bedtime story
+
+Only respond with the title, nothing else.
+
+Story:
+"""
+
 # Helper functions
 def generate_story(provider_name: str, prompt: str) -> str:
     """
@@ -94,6 +109,60 @@ def generate_image_prompt(provider_name: str, story: str) -> str:
     """
     full_prompt = IMAGE_SUMMARY_PROMPT + story
     return generate_story(provider_name, full_prompt).strip()
+
+def extract_story_title(provider_name: str, story: str) -> str:
+    """
+    Uses the selected LLM provider to extract a concise title from the story.
+    """
+    full_prompt = TITLE_EXTRACTION_PROMPT + story
+    title = generate_story(provider_name, full_prompt).strip()
+
+    # Clean the title to make it filename-safe
+    # Remove quotes if the AI wrapped the title in them
+    title = title.strip('"\'')
+    # Replace problematic characters with safe ones
+    title = re.sub(r'[<>:"/\\|?*]', '', title)
+    # Replace spaces with underscores and limit length
+    title = title.replace(' ', '_')[:50]
+
+    return title if title else "Untitled_Story"
+
+def save_story_to_file(story: str, provider_name: str) -> str:
+    """
+    Saves the story to a markdown file with date and AI-generated title.
+    Returns the filename of the saved file.
+    """
+    # Create stories directory if it doesn't exist
+    stories_dir = "stories"
+    if not os.path.exists(stories_dir):
+        os.makedirs(stories_dir)
+
+    # Get current date
+    date_str = datetime.now().strftime("%Y-%m-%d")
+
+    # Extract title from story
+    title = extract_story_title(provider_name, story)
+
+    # Create filename
+    filename = f"{date_str}_{title}.md"
+    filepath = os.path.join(stories_dir, filename)
+
+    # Create markdown content
+    markdown_content = f"# {title.replace('_', ' ')}\n\n"
+    markdown_content += f"*Generated on {datetime.now().strftime('%Y-%m-%d at %H:%M:%S')}*\n"
+    markdown_content += f"*Using provider: {provider_name}*\n\n"
+    markdown_content += "---\n\n"
+    markdown_content += story
+
+    # Save to file
+    try:
+        with open(filepath, 'w', encoding='utf-8') as f:
+            f.write(markdown_content)
+        print(f"Story saved to: {filepath}")
+        return filename
+    except Exception as e:
+        print(f"Error saving story: {e}")
+        return None
 
 def generate_image_with_openai(prompt: str) -> str:
     """
@@ -144,6 +213,7 @@ def wait():
 def generate():
     """
     Generates the story using the selected LLM provider and stores it in the session.
+    Also saves the story to a local file.
     """
     user_prompt = (
         f"Names: {session.get('name_and_friends', '')}\n"
@@ -156,6 +226,11 @@ def generate():
     provider_name = session.get("llm_provider", "ollama")
     story = generate_story(provider_name, full_prompt)
     session["story"] = story
+
+    # Save the story to a file
+    saved_filename = save_story_to_file(story, provider_name)
+    if saved_filename:
+        session["saved_filename"] = saved_filename
 
     return jsonify({"status": "ok"})
 
