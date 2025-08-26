@@ -1,4 +1,5 @@
-{% extends "base.html" %} {% block title %}Your bedtime story{% endblock %} {% block content %}
+{% extends "base.html" %} {% block title %}Your bedtime story{% endblock %} {%
+block content %}
 <article>
     <h2>Here is your story!</h2>
 
@@ -24,22 +25,64 @@
         <div id="imageContainer" style="display: none">
             <img
                 id="storyImage"
-                style="max-width: 100%; height: auto; border-radius: 8px; margin-top: 1rem"
+                style="
+                    max-width: 100%;
+                    height: auto;
+                    border-radius: 8px;
+                    margin-top: 1rem;
+                "
                 alt="Story illustration"
             />
         </div>
         <div id="imageError" style="display: none">
             <p style="color: var(--pico-del-color)">
-                <em>Oops! We couldn't create the picture this time, but your story is still wonderful! 🌟</em>
+                <em
+                    >Oops! We couldn't create the picture this time, but your
+                    story is still wonderful! 🌟</em
+                >
             </p>
         </div>
     </div>
     {% endif %}
 </article>
 
-<a href="{{ url_for('index') }}">Make another story</a>
+<div
+    style="
+        margin-top: 2rem;
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        align-items: center;
+    "
+>
+    <a href="{{ url_for('index') }}">Make another story</a>
+    <a
+        href="#"
+        id="generateChapterBtn"
+        onclick="generateNewChapter(); return false;"
+    >
+        Generate a new chapter
+    </a>
+</div>
 
-{% if generate_image %}
+<div
+    id="chapterLoading"
+    style="display: none; text-align: center; margin-top: 1rem"
+>
+    <p><em>Creating the next chapter of your adventure...</em></p>
+    <div
+        style="
+            margin: 1rem auto;
+            width: 30px;
+            height: 30px;
+            border: 3px solid #e9ecef;
+            border-radius: 50%;
+            border-top: 3px solid var(--pico-primary);
+            animation: spin 1s linear infinite;
+        "
+    ></div>
+</div>
+
 <style>
     @keyframes spin {
         0% {
@@ -52,6 +95,7 @@
 </style>
 
 <script>
+    {% if generate_image %}
     // Start image generation when page loads (only if image generation is enabled)
     window.addEventListener("load", function () {
         generateImage();
@@ -88,5 +132,46 @@
         document.getElementById("imageLoading").style.display = "none";
         document.getElementById("imageError").style.display = "block";
     }
+    {% endif %}
+
+    function generateNewChapter() {
+        // Show loading indicator
+        document.getElementById("chapterLoading").style.display = "block";
+        const btn = document.getElementById("generateChapterBtn");
+        btn.style.pointerEvents = "none";
+        btn.textContent = "Generating...";
+        btn.style.opacity = "0.6";
+
+        fetch("/generate_chapter", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+        })
+            .then((response) => response.json())
+            .then((data) => {
+                if (data.status === "success" && data.redirect) {
+                    // Reload the page to show the updated story
+                    window.location.reload();
+                } else {
+                    showChapterError();
+                }
+            })
+            .catch((error) => {
+                console.error("Error generating chapter:", error);
+                showChapterError();
+            });
+    }
+
+    function showChapterError() {
+        document.getElementById("chapterLoading").style.display = "none";
+        const btn = document.getElementById("generateChapterBtn");
+        btn.style.pointerEvents = "auto";
+        btn.textContent = "Generate a new chapter";
+        btn.style.opacity = "1";
+        alert(
+            "Sorry, we couldn't generate a new chapter right now. Please try again!",
+        );
+    }
 </script>
-{% endif %} {% endblock %}
+{% endblock %}

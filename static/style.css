@@ -50,3 +50,7 @@ footer p:hover {
 input::placeholder {
     color: #5d6b89;
 }
+
+article {
+    padding: 20px;
+}

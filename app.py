@@ -1,6 +1,4 @@
 import os
-import time
-import requests
 from datetime import datetime
 import re
 from dotenv import load_dotenv
@@ -65,6 +63,36 @@ PACING:
 
 Here is what the user gave you to try and use in the story.
 Don't feel like you need to use all of it, but weave in what you can naturally.
+
+"""
+
+CHAPTER_PROMPT = """
+You are a masterful storyteller continuing an engaging bedtime story for a child.
+You will be given an existing story and need to create the next chapter that continues the adventure.
+
+CHAPTER REQUIREMENTS:
+- Write a new chapter that's 6-10 paragraphs long (aim for about 600-1000 words)
+- The chapter should feel like a natural continuation of the existing story
+- Maintain the same tone, characters, and world established in the original story
+- The chapter should be gentle, positive, engaging, and adventurous
+- Include new events, discoveries, or challenges that build on what came before
+- End with either resolution or a gentle cliffhanger that could lead to another chapter
+
+CONTINUITY GUIDELINES:
+- Keep the same main characters and their personalities
+- Reference events from the previous story/chapters
+- Maintain the same magical or realistic world rules established
+- Keep the same age-appropriate tone and complexity
+- Build on relationships and locations already introduced
+
+CHAPTER STRUCTURE:
+- Start by briefly connecting to where the previous story left off
+- Introduce 2-3 new events, challenges, or discoveries
+- Show character growth or new aspects of familiar characters
+- Include sensory details and dialogue to bring scenes to life
+- End with a satisfying conclusion or gentle transition to potential future adventures
+
+Here is the existing story that you need to continue:
 
 """
 
@@ -140,15 +168,25 @@ def save_story_to_file(story: str, provider_name: str) -> str:
     # Get current date
     date_str = datetime.now().strftime("%Y-%m-%d")
 
-    # Extract title from story
-    title = extract_story_title(provider_name, story)
+    # Check if this is a multi-chapter story
+    is_multi_chapter = "## Chapter 2" in story or "---" in story
+
+    # Extract title from story (use first part if it's multi-chapter)
+    story_for_title = story.split("---")[0] if is_multi_chapter else story
+    title = extract_story_title(provider_name, story_for_title)
+
+    # Add chapter indicator to title if multi-chapter
+    if is_multi_chapter:
+        chapter_count = story.count("## Chapter") + 1  # +1 for the first chapter
+        title += f"_Chapters_1-{chapter_count}"
 
     # Create filename
     filename = f"{date_str}_{title}.md"
     filepath = os.path.join(stories_dir, filename)
 
     # Create markdown content
-    markdown_content = f"# {title.replace('_', ' ')}\n\n"
+    clean_title = title.replace('_', ' ').replace('Chapters 1-', 'Chapters 1-')
+    markdown_content = f"# {clean_title}\n\n"
     markdown_content += f"*Generated on {datetime.now().strftime('%Y-%m-%d at %H:%M:%S')}*\n"
     markdown_content += f"*Using provider: {provider_name}*\n\n"
     markdown_content += "---\n\n"
@@ -162,7 +200,7 @@ def save_story_to_file(story: str, provider_name: str) -> str:
         return filename
     except Exception as e:
         print(f"Error saving story: {e}")
-        return None
+        return ""
 
 def generate_image_with_openai(prompt: str) -> str:
     """
@@ -176,10 +214,13 @@ def generate_image_with_openai(prompt: str) -> str:
             quality="standard",
             n=1,
         )
-        return response.data[0].url
+        if response and response.data and len(response.data) > 0 and response.data[0].url:
+            return response.data[0].url
+        else:
+            return ""
     except Exception as e:
         print(f"Error generating image: {e}")
-        return None
+        return ""
 
 # Routes
 @app.route("/", methods=["GET"])
@@ -275,6 +316,37 @@ def check_image():
         return jsonify({"status": "ready", "image_url": image_url})
     else:
         return jsonify({"status": "generating"})
+
+@app.route("/generate_chapter", methods=["POST"])
+def generate_chapter():
+    """
+    Generates a new chapter based on the existing story and appends it.
+    """
+    current_story = session.get("story", "")
+    if not current_story:
+        return jsonify({"error": "No existing story found"}), 400
+
+    # Create the chapter prompt with the existing story
+    full_prompt = CHAPTER_PROMPT + current_story
+
+    # Generate the new chapter using the same provider
+    provider_name = session.get("llm_provider", "ollama")
+    new_chapter = generate_story(provider_name, full_prompt)
+
+    # Determine the next chapter number
+    existing_chapters = current_story.count("## Chapter")
+    next_chapter_num = existing_chapters + 2  # +2 because first story is Chapter 1, then we add 1 more
+
+    # Combine the original story with the new chapter
+    combined_story = current_story + f"\n\n---\n\n## Chapter {next_chapter_num}\n\n" + new_chapter
+    session["story"] = combined_story
+
+    # Save the updated story to a file
+    saved_filename = save_story_to_file(combined_story, provider_name)
+    if saved_filename:
+        session["saved_filename"] = saved_filename
+
+    return jsonify({"status": "success", "redirect": url_for("result")})
 
 # Run the app
 if __name__ == "__main__":
