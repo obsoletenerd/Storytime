@@ -1,4 +1,6 @@
 import os
+import uuid
+import json
 from datetime import datetime
 import re
 from dotenv import load_dotenv
@@ -16,6 +18,11 @@ from llm_providers import get_available_providers, get_provider
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)  # <-- change for production
+
+# Session storage directory
+SESSIONS_DIR = "sessions"
+if not os.path.exists(SESSIONS_DIR):
+    os.makedirs(SESSIONS_DIR)
 
 # Load .env file
 load_dotenv()
@@ -202,6 +209,153 @@ def save_story_to_file(story: str, provider_name: str) -> str:
         print(f"Error saving story: {e}")
         return ""
 
+def get_available_stories() -> dict:
+    """
+    Scans the stories directory and returns a dictionary of available stories.
+    Returns dict with filename as key and display info as value.
+    """
+    stories_dir = "stories"
+    available_stories = {}
+
+    if not os.path.exists(stories_dir):
+        return available_stories
+
+    try:
+        for filename in os.listdir(stories_dir):
+            if filename.endswith('.md'):
+                filepath = os.path.join(stories_dir, filename)
+                try:
+                    with open(filepath, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                        # Extract title from markdown (first # line)
+                        lines = content.split('\n')
+                        title = "Untitled Story"
+                        for line in lines:
+                            if line.startswith('# '):
+                                title = line[2:].strip()
+                                break
+
+                        # Get creation date from filename or file stats
+                        date_match = filename[:10] if filename[:10].count('-') == 2 else None
+                        if date_match:
+                            display_name = f"{title} ({date_match})"
+                        else:
+                            mod_time = os.path.getmtime(filepath)
+                            date_str = datetime.fromtimestamp(mod_time).strftime("%Y-%m-%d")
+                            display_name = f"{title} ({date_str})"
+
+                        available_stories[filename] = {
+                            'display_name': display_name,
+                            'title': title,
+                            'filepath': filepath
+                        }
+                except Exception as e:
+                    print(f"Error reading story file {filename}: {e}")
+                    continue
+    except Exception as e:
+        print(f"Error scanning stories directory: {e}")
+
+    return available_stories
+
+def load_story_from_file(filename: str) -> tuple[str, str]:
+    """
+    Loads a story from a markdown file and returns (title, story_content).
+    """
+    stories_dir = "stories"
+    filepath = os.path.join(stories_dir, filename)
+
+    if not os.path.exists(filepath):
+        return "Story Not Found", "The requested story could not be found."
+
+    try:
+        with open(filepath, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        # Split content to separate metadata from story
+        lines = content.split('\n')
+        title = "Untitled Story"
+        story_start_idx = 0
+
+        # Find title and story start
+        in_metadata = True
+        for i, line in enumerate(lines):
+            if line.startswith('# '):
+                title = line[2:].strip()
+            elif line.strip() == '---' and in_metadata:
+                # This is the metadata separator, story starts after this
+                story_start_idx = i + 1
+                in_metadata = False
+                break
+
+        # Extract story content (everything after the metadata separator)
+        # This includes all chapters and any additional separators
+        story_lines = lines[story_start_idx:]
+        story_content = '\n'.join(story_lines).strip()
+
+        return title, story_content
+
+    except Exception as e:
+        print(f"Error loading story from {filename}: {e}")
+        return "Error", f"Could not load the story: {e}"
+
+def get_session_file_path(session_id: str) -> str:
+    """Get the file path for a session."""
+    return os.path.join(SESSIONS_DIR, f"{session_id}.json")
+
+def save_session_data(session_id: str, data: dict):
+    """Save session data to a file."""
+    try:
+        filepath = get_session_file_path(session_id)
+        with open(filepath, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"Error saving session data: {e}")
+
+def load_session_data(session_id: str) -> dict:
+    """Load session data from a file."""
+    try:
+        filepath = get_session_file_path(session_id)
+        if os.path.exists(filepath):
+            with open(filepath, 'r', encoding='utf-8') as f:
+                return json.load(f)
+    except Exception as e:
+        print(f"Error loading session data: {e}")
+    return {}
+
+def get_or_create_session_id() -> str:
+    """Get existing session ID or create a new one."""
+    if 'session_id' not in session:
+        session['session_id'] = str(uuid.uuid4())
+    return session['session_id']
+
+def get_session_value(key: str, default=None):
+    """Get a value from file-based session storage."""
+    session_id = get_or_create_session_id()
+    data = load_session_data(session_id)
+    return data.get(key, default)
+
+def set_session_value(key: str, value):
+    """Set a value in file-based session storage."""
+    session_id = get_or_create_session_id()
+    data = load_session_data(session_id)
+    data[key] = value
+    save_session_data(session_id, data)
+
+def cleanup_old_sessions():
+    """Remove session files older than 24 hours."""
+    try:
+        current_time = datetime.now().timestamp()
+        for filename in os.listdir(SESSIONS_DIR):
+            if filename.endswith('.json'):
+                filepath = os.path.join(SESSIONS_DIR, filename)
+                file_time = os.path.getmtime(filepath)
+                # Remove files older than 24 hours (86400 seconds)
+                if current_time - file_time > 86400:
+                    os.remove(filepath)
+                    print(f"Removed old session file: {filename}")
+    except Exception as e:
+        print(f"Error cleaning up old sessions: {e}")
+
 def generate_image_with_openai(prompt: str) -> str:
     """
     Generates an image using OpenAI's DALL-E API and returns the image URL.
@@ -225,9 +379,13 @@ def generate_image_with_openai(prompt: str) -> str:
 # Routes
 @app.route("/", methods=["GET"])
 def index():
+    # Clean up old session files periodically
+    cleanup_old_sessions()
+
     available_providers = get_available_providers()
+    available_stories = get_available_stories()
     print(available_providers)
-    return render_template("index.html", available_providers=available_providers)
+    return render_template("index.html", available_providers=available_providers, available_stories=available_stories)
 
 
 @app.route("/start", methods=["POST"])
@@ -235,12 +393,12 @@ def start():
     """
     Stores the user data in the session and redirects to the wait page.
     """
-    session["name_and_friends"] = request.form.get("names", "")
-    session["favourite_things"] = request.form.get("things", "")
-    session["topic"] = request.form.get("topic", "")
-    session["llm_provider"] = request.form.get("llm_provider", "ollama")
+    set_session_value("name_and_friends", request.form.get("names", ""))
+    set_session_value("favourite_things", request.form.get("things", ""))
+    set_session_value("topic", request.form.get("topic", ""))
+    set_session_value("llm_provider", request.form.get("llm_provider", "ollama"))
     # Store whether user wants image generation (checkbox returns "on" if checked, None if not)
-    session["generate_image"] = request.form.get("generate_image") == "on"
+    set_session_value("generate_image", request.form.get("generate_image") == "on")
     return redirect(url_for("wait"))
 
 @app.route("/wait")
@@ -257,21 +415,26 @@ def generate():
     Also saves the story to a local file.
     """
     user_prompt = (
-        f"Names: {session.get('name_and_friends', '')}\n"
-        f"Favourite things: {session.get('favourite_things', '')}\n"
-        f"Topic: {session.get('topic', '')}\n"
+        f"Names: {get_session_value('name_and_friends', '')}\n"
+        f"Favourite things: {get_session_value('favourite_things', '')}\n"
+        f"Topic: {get_session_value('topic', '')}\n"
     )
     full_prompt = MASTER_PROMPT + user_prompt
 
     # Generate the story using the selected provider
-    provider_name = session.get("llm_provider", "ollama")
+    provider_name = get_session_value("llm_provider", "ollama")
     story = generate_story(provider_name, full_prompt)
-    session["story"] = story
+    set_session_value("story", story)
+
+    # Extract and store the title
+    title = extract_story_title(provider_name, story)
+    set_session_value("story_title", title.replace('_', ' '))
+    set_session_value("is_loaded_story", False)
 
     # Save the story to a file
     saved_filename = save_story_to_file(story, provider_name)
     if saved_filename:
-        session["saved_filename"] = saved_filename
+        set_session_value("saved_filename", saved_filename)
 
     return jsonify({"status": "ok"})
 
@@ -280,28 +443,30 @@ def result():
     """
     Display the generated story with optional image generation capability.
     """
-    story = session.get("story", "No story generated.")
-    should_generate_image = session.get("generate_image", False)
-    return render_template("result.html", story=story, generate_image=should_generate_image)
+    story = get_session_value("story", "No story generated.")
+    title = get_session_value("story_title", "")
+    should_generate_image = get_session_value("generate_image", False)
+    is_loaded_story = get_session_value("is_loaded_story", False)
+    return render_template("result.html", story=story, title=title, generate_image=should_generate_image, is_loaded_story=is_loaded_story)
 
 @app.route("/generate_image", methods=["POST"])
 def generate_image():
     """
     Generates an image based on the story and returns the image URL.
     """
-    story = session.get("story", "")
+    story = get_session_value("story", "")
     if not story:
         return jsonify({"error": "No story found"}), 400
 
     # Generate image description using the same LLM provider that created the story
-    provider_name = session.get("llm_provider", "ollama")
+    provider_name = get_session_value("llm_provider", "ollama")
     image_description = generate_image_prompt(provider_name, story)
 
     # Generate the actual image
     image_url = generate_image_with_openai(image_description)
 
     if image_url:
-        session["image_url"] = image_url
+        set_session_value("image_url", image_url)
         return jsonify({"status": "success", "image_url": image_url})
     else:
         return jsonify({"error": "Failed to generate image"}), 500
@@ -311,7 +476,7 @@ def check_image():
     """
     Check if an image has been generated for the current story.
     """
-    image_url = session.get("image_url")
+    image_url = get_session_value("image_url")
     if image_url:
         return jsonify({"status": "ready", "image_url": image_url})
     else:
@@ -322,7 +487,7 @@ def generate_chapter():
     """
     Generates a new chapter based on the existing story and appends it.
     """
-    current_story = session.get("story", "")
+    current_story = get_session_value("story", "")
     if not current_story:
         return jsonify({"error": "No existing story found"}), 400
 
@@ -330,7 +495,7 @@ def generate_chapter():
     full_prompt = CHAPTER_PROMPT + current_story
 
     # Generate the new chapter using the same provider
-    provider_name = session.get("llm_provider", "ollama")
+    provider_name = get_session_value("llm_provider", "ollama")
     new_chapter = generate_story(provider_name, full_prompt)
 
     # Determine the next chapter number
@@ -339,14 +504,37 @@ def generate_chapter():
 
     # Combine the original story with the new chapter
     combined_story = current_story + f"\n\n---\n\n## Chapter {next_chapter_num}\n\n" + new_chapter
-    session["story"] = combined_story
+    set_session_value("story", combined_story)
 
     # Save the updated story to a file
     saved_filename = save_story_to_file(combined_story, provider_name)
     if saved_filename:
-        session["saved_filename"] = saved_filename
+        set_session_value("saved_filename", saved_filename)
 
     return jsonify({"status": "success", "redirect": url_for("result")})
+
+@app.route("/read", methods=["POST"])
+def read():
+    """
+    Loads an existing story from file and displays it in the result template.
+    """
+    selected_story = request.form.get("story_selector")
+    if not selected_story:
+        return redirect(url_for("index"))
+
+    # Load the story from file
+    title, story_content = load_story_from_file(selected_story)
+
+    # Store in session so it can be continued with new chapters
+    set_session_value("story", story_content)
+    set_session_value("story_title", title)
+    set_session_value("is_loaded_story", True)
+    # Set a default provider for chapter generation if needed
+    set_session_value("llm_provider", get_session_value("llm_provider", "ollama"))
+    # Disable image generation for loaded stories by default
+    set_session_value("generate_image", False)
+
+    return redirect(url_for("result"))
 
 # Run the app
 if __name__ == "__main__":

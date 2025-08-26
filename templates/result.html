@@ -1,7 +1,11 @@
 {% extends "base.html" %} {% block title %}Your bedtime story{% endblock %} {%
 block content %}
 <article>
+    {% if is_loaded_story %}
+    <h2>Here is your saved story!</h2>
+    {% else %}
     <h2>Here is your story!</h2>
+    {% endif %}
 
     <h1>{{ title }}</h1>
     <pre style="white-space: pre-wrap">{{ story }}</pre>

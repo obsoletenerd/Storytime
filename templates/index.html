@@ -25,4 +25,23 @@
         <button type="submit">Generate story</button>
     </form>
 </article>
+
+<article>
+    <h2>View Existing Stories</h2>
+    <p>Here you can select existing stories that have already been generated and read them again, or create new chapters for them.</p>
+
+    {% if available_stories %}
+    <form action="{{ url_for('read') }}" method="post">
+        <label for="story_selector">Select a Story</label>
+        <select id="story_selector" name="story_selector" required>
+            {% for key, story in available_stories.items() %}
+            <option value="{{ key }}">{{ story.display_name }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit">Read Story</button>
+    </form>
+    {% else %}
+    <p><em>No saved stories yet. Generate your first story above!</em></p>
+    {% endif %}
+</article>
 {% endblock %}
