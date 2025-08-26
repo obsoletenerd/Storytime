@@ -1,9 +1,11 @@
 import os
 import uuid
 import json
+import requests
 from datetime import datetime
 import re
 from dotenv import load_dotenv
+
 from flask import (
     Flask,
     render_template,
@@ -158,13 +160,14 @@ def extract_story_title(provider_name: str, story: str) -> str:
     # Replace problematic characters with safe ones
     title = re.sub(r'[<>:"/\\|?*]', '', title)
     # Replace spaces with underscores and limit length
-    title = title.replace(' ', '_')[:50]
+    title = title.replace(' ', '_')[:80]
 
     return title if title else "Untitled_Story"
 
-def save_story_to_file(story: str, provider_name: str) -> str:
+def save_story_to_file(story: str, provider_name: str, existing_filename: str = "") -> str:
     """
     Saves the story to a markdown file with date and AI-generated title.
+    If existing_filename is provided, updates that file instead of creating a new one.
     Returns the filename of the saved file.
     """
     # Create stories directory if it doesn't exist
@@ -172,24 +175,45 @@ def save_story_to_file(story: str, provider_name: str) -> str:
     if not os.path.exists(stories_dir):
         os.makedirs(stories_dir)
 
-    # Get current date
-    date_str = datetime.now().strftime("%Y-%m-%d")
+    if existing_filename and existing_filename.strip():
+        # Use existing filename for updates
+        filename = existing_filename
+        filepath = os.path.join(stories_dir, filename)
 
-    # Check if this is a multi-chapter story
-    is_multi_chapter = "## Chapter 2" in story or "---" in story
+        # Extract title from existing file if it exists
+        if os.path.exists(filepath):
+            try:
+                with open(filepath, 'r', encoding='utf-8') as f:
+                    existing_content = f.read()
+                    lines = existing_content.split('\n')
+                    title = "Untitled Story"
+                    for line in lines:
+                        if line.startswith('# '):
+                            title = line[2:].strip()
+                            break
+            except Exception:
+                title = "Updated Story"
+        else:
+            title = "Updated Story"
+    else:
+        # Create new filename
+        date_str = datetime.now().strftime("%Y-%m-%d")
 
-    # Extract title from story (use first part if it's multi-chapter)
-    story_for_title = story.split("---")[0] if is_multi_chapter else story
-    title = extract_story_title(provider_name, story_for_title)
+        # Check if this is a multi-chapter story
+        is_multi_chapter = "## Chapter 2" in story or "---" in story
 
-    # Add chapter indicator to title if multi-chapter
-    if is_multi_chapter:
-        chapter_count = story.count("## Chapter") + 1  # +1 for the first chapter
-        title += f"_Chapters_1-{chapter_count}"
+        # Extract title from story (use first part if it's multi-chapter)
+        story_for_title = story.split("---")[0] if is_multi_chapter else story
+        title = extract_story_title(provider_name, story_for_title)
 
-    # Create filename
-    filename = f"{date_str}_{title}.md"
-    filepath = os.path.join(stories_dir, filename)
+        # Add chapter indicator to title if multi-chapter
+        if is_multi_chapter:
+            chapter_count = story.count("## Chapter") + 1  # +1 for the first chapter
+            title += f"_Chapters_1-{chapter_count}"
+
+        # Create filename
+        filename = f"{date_str}_{title}.md"
+        filepath = os.path.join(stories_dir, filename)
 
     # Create markdown content
     clean_title = title.replace('_', ' ').replace('Chapters 1-', 'Chapters 1-')
@@ -341,6 +365,49 @@ def set_session_value(key: str, value):
     data[key] = value
     save_session_data(session_id, data)
 
+def convert_basic_markdown_to_html(text: str) -> str:
+    """
+    Converts basic markdown elements to HTML without external dependencies.
+    """
+    html = text
+
+    # Convert headers
+    html = re.sub(r'^## (.*?)$', r'<h2>\1</h2>', html, flags=re.MULTILINE)
+    html = re.sub(r'^# (.*?)$', r'<h1>\1</h1>', html, flags=re.MULTILINE)
+
+    # Convert images with proper Flask static URLs
+    def replace_image(match):
+        alt_text = match.group(1)
+        image_path = match.group(2)
+        # Convert static/images/filename.png to proper Flask URL
+        if image_path.startswith('static/images/'):
+            filename = image_path.replace('static/images/', '')
+            flask_url = url_for('static', filename=f'images/{filename}')
+            return f'<img src="{flask_url}" alt="{alt_text}" />'
+        else:
+            return f'<img src="{image_path}" alt="{alt_text}" />'
+
+    html = re.sub(r'!\[(.*?)\]\((.*?)\)', replace_image, html)
+
+    # Convert horizontal rules
+    html = re.sub(r'^---$', r'<hr>', html, flags=re.MULTILINE)
+
+    # Convert paragraphs (split by double newlines)
+    paragraphs = html.split('\n\n')
+    formatted_paragraphs = []
+
+    for paragraph in paragraphs:
+        paragraph = paragraph.strip()
+        if paragraph:
+            # Don't wrap headers or images or hrs in paragraph tags
+            if not (paragraph.startswith('<h') or paragraph.startswith('<img') or paragraph.startswith('<hr')):
+                # Convert single newlines to spaces within paragraphs
+                paragraph = paragraph.replace('\n', ' ')
+                paragraph = f'<p>{paragraph}</p>'
+            formatted_paragraphs.append(paragraph)
+
+    return '\n'.join(formatted_paragraphs)
+
 def cleanup_old_sessions():
     """Remove session files older than 24 hours."""
     try:
@@ -355,6 +422,82 @@ def cleanup_old_sessions():
                     print(f"Removed old session file: {filename}")
     except Exception as e:
         print(f"Error cleaning up old sessions: {e}")
+
+def download_and_save_image(image_url: str, story_filename: str, chapter_num: int = 1) -> str:
+    """
+    Downloads an image from URL and saves it locally.
+    Returns the local filename or empty string if failed.
+    """
+    if not image_url:
+        return ""
+
+    try:
+        # Create images directory if it doesn't exist
+        images_dir = os.path.join("static", "images")
+        if not os.path.exists(images_dir):
+            os.makedirs(images_dir)
+
+        # Generate local filename based on story filename and chapter
+        base_name = story_filename.replace('.md', '')
+        if chapter_num > 1:
+            image_filename = f"{base_name}_chapter_{chapter_num}.png"
+        else:
+            image_filename = f"{base_name}.png"
+
+        image_path = os.path.join(images_dir, image_filename)
+
+        # Download the image
+        response = requests.get(image_url, timeout=30)
+        response.raise_for_status()
+
+        # Save the image
+        with open(image_path, 'wb') as f:
+            f.write(response.content)
+
+        print(f"Image saved to: {image_path}")
+        return image_filename
+
+    except Exception as e:
+        print(f"Error downloading/saving image: {e}")
+        return ""
+
+def embed_image_in_story(story_content: str, image_filename: str) -> str:
+    """
+    Embeds an image at the end of each chapter in the story content.
+    """
+    if not image_filename:
+        return story_content
+
+    # Split story into chapters
+    chapters = story_content.split("---")
+
+    if len(chapters) == 1:
+        # Single chapter story - add image at the end
+        image_markdown = f"\n\n![Story Illustration](static/images/{image_filename})"
+        return story_content + image_markdown
+
+    else:
+        # Multi-chapter story - add image to each chapter
+        updated_chapters = []
+
+        for i, chapter in enumerate(chapters):
+            chapter = chapter.strip()
+            if chapter:
+                # Determine chapter number for image filename
+                if i == 0:
+                    # First chapter
+                    chapter_image = image_filename
+                else:
+                    # Subsequent chapters
+                    base_name = image_filename.replace('.png', '')
+                    chapter_image = f"{base_name}_chapter_{i + 1}.png"
+
+                image_markdown = f"\n\n![Chapter {i + 1} Illustration](static/images/{chapter_image})"
+                updated_chapters.append(chapter + image_markdown)
+            else:
+                updated_chapters.append(chapter)
+
+        return "\n\n---\n\n".join(updated_chapters)
 
 def generate_image_with_openai(prompt: str) -> str:
     """
@@ -422,7 +565,7 @@ def generate():
     full_prompt = MASTER_PROMPT + user_prompt
 
     # Generate the story using the selected provider
-    provider_name = get_session_value("llm_provider", "ollama")
+    provider_name = get_session_value("llm_provider", "ollama") or "ollama"
     story = generate_story(provider_name, full_prompt)
     set_session_value("story", story)
 
@@ -447,7 +590,12 @@ def result():
     title = get_session_value("story_title", "")
     should_generate_image = get_session_value("generate_image", False)
     is_loaded_story = get_session_value("is_loaded_story", False)
-    return render_template("result.html", story=story, title=title, generate_image=should_generate_image, is_loaded_story=is_loaded_story)
+
+    # Convert basic markdown to HTML for proper display
+    story_text = story or "No story generated."
+    story_html = convert_basic_markdown_to_html(story_text)
+
+    return render_template("result.html", story=story_html, title=title, generate_image=should_generate_image, is_loaded_story=is_loaded_story)
 
 @app.route("/generate_image", methods=["POST"])
 def generate_image():
@@ -459,7 +607,7 @@ def generate_image():
         return jsonify({"error": "No story found"}), 400
 
     # Generate image description using the same LLM provider that created the story
-    provider_name = get_session_value("llm_provider", "ollama")
+    provider_name = get_session_value("llm_provider", "ollama") or "ollama"
     image_description = generate_image_prompt(provider_name, story)
 
     # Generate the actual image
@@ -467,6 +615,25 @@ def generate_image():
 
     if image_url:
         set_session_value("image_url", image_url)
+
+        # Download and save the image
+        saved_filename = get_session_value("saved_filename", "")
+        if saved_filename:
+            # Determine current chapter count for image naming
+            current_story = get_session_value("story", "") or ""
+            chapter_count = current_story.count("## Chapter") + 1
+
+            image_filename = download_and_save_image(image_url, saved_filename, chapter_count)
+
+            if image_filename:
+                # Embed image in story content and update both session and file
+                updated_story = embed_image_in_story(current_story, image_filename)
+                set_session_value("story", updated_story)
+
+                # Re-save the story file with embedded image
+                provider_name = get_session_value("llm_provider", "ollama") or "ollama"
+                save_story_to_file(updated_story, provider_name, saved_filename)
+
         return jsonify({"status": "success", "image_url": image_url})
     else:
         return jsonify({"error": "Failed to generate image"}), 500
@@ -495,7 +662,7 @@ def generate_chapter():
     full_prompt = CHAPTER_PROMPT + current_story
 
     # Generate the new chapter using the same provider
-    provider_name = get_session_value("llm_provider", "ollama")
+    provider_name = get_session_value("llm_provider", "ollama") or "ollama"
     new_chapter = generate_story(provider_name, full_prompt)
 
     # Determine the next chapter number
@@ -506,8 +673,28 @@ def generate_chapter():
     combined_story = current_story + f"\n\n---\n\n## Chapter {next_chapter_num}\n\n" + new_chapter
     set_session_value("story", combined_story)
 
+    # Generate image for the new chapter if image generation was originally enabled
+    should_generate_image = get_session_value("generate_image", False)
+    if should_generate_image:
+        # Generate image description for the new chapter
+        image_description = generate_image_prompt(provider_name, new_chapter)
+        image_url = generate_image_with_openai(image_description)
+
+        if image_url:
+            # Download and save the image for this specific chapter
+            saved_filename = get_session_value("saved_filename", "")
+            if saved_filename:
+                image_filename = download_and_save_image(image_url, saved_filename, next_chapter_num)
+
+                if image_filename:
+                    # Embed the image at the end of just the new chapter
+                    image_markdown = f"\n\n![Chapter {next_chapter_num} Illustration](static/images/{image_filename})"
+                    combined_story += image_markdown
+                    set_session_value("story", combined_story)
+
     # Save the updated story to a file
-    saved_filename = save_story_to_file(combined_story, provider_name)
+    existing_filename = get_session_value("saved_filename", "") or ""
+    saved_filename = save_story_to_file(combined_story, provider_name, existing_filename)
     if saved_filename:
         set_session_value("saved_filename", saved_filename)
 

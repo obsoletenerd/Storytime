@@ -8,7 +8,7 @@ block content %}
     {% endif %}
 
     <h1>{{ title }}</h1>
-    <pre style="white-space: pre-wrap">{{ story }}</pre>
+    <div class="story-content">{{ story|safe }}</div>
 
     {% if generate_image %}
     <div id="imageSection" style="margin-top: 2rem; text-align: center">
@@ -96,6 +96,43 @@ block content %}
             transform: rotate(360deg);
         }
     }
+
+    .story-content {
+        font-size: 1.1em;
+        line-height: 1.6;
+        margin: 2rem 0;
+    }
+
+    .story-content h2 {
+        margin-top: 2rem;
+        margin-bottom: 1rem;
+        color: var(--pico-primary);
+        border-bottom: 2px solid var(--pico-primary);
+        padding-bottom: 0.5rem;
+    }
+
+    .story-content p {
+        margin-bottom: 1rem;
+        text-align: justify;
+    }
+
+    .story-content img {
+        max-width: 100%;
+        height: auto;
+        border-radius: 8px;
+        margin: 2rem auto;
+        display: block;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        background: white;
+        padding: 0.5rem;
+    }
+
+    .story-content hr {
+        margin: 3rem 0;
+        border: none;
+        border-top: 3px solid var(--pico-primary);
+        opacity: 0.3;
+    }
 </style>
 
 <script>
@@ -145,6 +182,13 @@ block content %}
         btn.style.pointerEvents = "none";
         btn.textContent = "Generating...";
         btn.style.opacity = "0.6";
+
+        // Check if images are enabled to update loading message
+        const hasImageGeneration = {{ 'true' if generate_image else 'false' }};
+        if (hasImageGeneration) {
+            document.querySelector("#chapterLoading p em").textContent =
+                "Creating the next chapter and its magical picture...";
+        }
 
         fetch("/generate_chapter", {
             method: "POST",
